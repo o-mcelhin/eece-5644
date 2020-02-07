@@ -30,8 +30,6 @@ def data_gen_normal(samples, dim, n_labels, n_mix, label_priors, mixture_priors,
             # Remove the parameters from top of array
             means = np.delete(means, 0, axis=0)
             covariances = np.delete(covariances, range(dim), axis=0)
-    # plt.plot(data_points[0, :], data_points[1, :])
-    # plt.show()
 
     data = data_points
 
@@ -41,25 +39,33 @@ def data_gen_normal(samples, dim, n_labels, n_mix, label_priors, mixture_priors,
 def generate_gauss_2d_2sub(q, q_sub, m, c, samples):
     # Pull parameters from inputs
     n_labels = len(q)
-    n_dim = m[0, :, 0].shape
+    n_dim = m[0, :, 0].shape[0]
+    sub = q_sub.shape[1]
     # Random vector for determining class labels
     s = np.random.uniform(0, 1, (1, samples))
+    d = np.zeros((n_dim, s.shape[1]))
     label_idx = np.zeros((1, s.shape[1]))
     for k in range(n_labels):
-        if k == 0:
-            idx = np.where(s[0, :] <= q[0])
-
-        else:
-            prev = np.sum(q[0:k])
-            idx = np.where((s[0, :] > prev) & (s[0, :] <= prev + q[k]))[0]
-            label_idx[0, idx] = k
-    ph = 1
+        prev = np.sum(q[0:k])
+        idx = np.where((s[0, :] > prev) & (s[0, :] <= prev + q[k]))[0]
+        label_idx[0, idx] = k
+        s_sub = np.random.uniform(0, 1, (1,idx.shape[0]))
+        for j in range(sub):
+            prev = np.sum(q_sub[k, 0:j])
+            idx_sub = np.where((s_sub[0, :] > prev) & (s_sub[0, :] <= prev + q_sub[k, j]))[0]
+            for g in idx_sub:
+                d[:, idx[g]] = np.random.multivariate_normal(m[0, :, ((k*sub)+j)], c[:, :, ((k*sub)+j)]).T
+                ph = 1
+    fig, axs = plt.subplots()
+    axs.plot(d[0, :], d[1, :], 'bo')
+    return d, label_idx
 
 
 def evaluate_gaussian(x, m, cov):
     l = (1/(np.sqrt((2*math.pi)**2*np.linalg.det(cov)))) * math.exp(-0.5*(np.dot(np.subtract(x, m).dot(np.linalg.inv(cov)), np.subtract(x, m))))
 
     return l
+
 
 def normal_2d_2class(data, means, covariances):
     # Pull covariances
@@ -253,11 +259,11 @@ def problem1_3(data, label_idx):
 def problem2():
     # Initialize all mixture parameters
     # External and internal priors
-    q = [0.9, 0.1]
+    q = [0.8, 0.2]
     q_sub = np.array([[0.5, 0.5], [0.6, 0.4]])
     # means
     m = np.zeros((1, 2, 4))
-    m[0, :, 0] = [1, 2]
+    m[0, :, 0] = [1, 1]
     m[0, :, 1] = [1, 0]
     m[0, :, 2] = [-1, -1]
     m[0, :, 3] = [0, 1]
@@ -268,17 +274,44 @@ def problem2():
     c[:, :, 2] = np.array([[1, -0.4], [-0.4, 1]])
     c[:, :, 3] = np.array([[1, -0.1], [-0.1, 1]])
     # Call function to generate data
-    data = generate_gauss_2d_2sub(q, q_sub, m, c, 10000)
-
+    data, label_idx = generate_gauss_2d_2sub(q, q_sub, m, c, 1000)
+    # Calculate decision statistics
+    dec = []
+    for k in data.T:
+        dec.append(np.log(evaluate_gaussian(k, m[0, :, 3], c[:, :, 3]) + evaluate_gaussian(k, m[0, :, 2], c[:, :, 2])) - (
+            np.log(evaluate_gaussian(k, m[0, :, 1], c[:, :, 1]) + evaluate_gaussian(k, m[0, :, 0], c[:, :, 0]))
+        ))
+    dec = np.asarray(dec)
+    # Get min and max values
+    bot = np.amin(dec)
+    top = np.amax(dec)
+    # Vary threshold and make ROC and error curves
+    gamma = np.linspace(bot, top, 500)
+    fa = []
+    tp = []
+    acc = []
+    for g in gamma:
+        D = make_decision(dec, g)
+        fa_out, tp_out = ROC_accuracy_check(data, label_idx, D)
+        fa.append(fa_out)
+        tp.append(tp_out)
+        acc.append(accuracy(label_idx, D))
+    fa = np.asarray(fa)
+    tp = np.asarray(tp)
+    err = np.asarray(acc)
+    fig, axs = plt.subplots(2, 1)
+    axs[0].plot(fa, tp, linewidth=3)
+    axs[1].plot(gamma, err)
+    plt.show()
 
 
 
 if __name__ == '__main__':
-    # problem 1_1 decision theory with known covariance
-    data, label_idx = problem1_1()
-    # problem 1_2 decision theory with Naive Bayes
-    problem1_2(data, label_idx)
-    # Problem 1_3 decision theory with Fischer LDA
-    problem1_3(data, label_idx)
-    # Problem 2 decision problem with two classes, each composed of two Gaussians
+    # # problem 1_1 decision theory with known covariance
+    # data, label_idx = problem1_1()
+    # # problem 1_2 decision theory with Naive Bayes
+    # problem1_2(data, label_idx)
+    # # Problem 1_3 decision theory with Fischer LDA
+    # problem1_3(data, label_idx)
+    # # Problem 2 decision problem with two classes, each composed of two Gaussians
     problem2()
