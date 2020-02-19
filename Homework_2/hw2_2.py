@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import math
 
 
+
 def data_generation(true_params, gamma, std_v, samples):
     # Generate x data from uniform [-1, 1]
     x = np.random.uniform(-1, 1, (1, samples))
