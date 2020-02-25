@@ -20,7 +20,7 @@ def data_generation(true_params, gamma, std_v, samples):
     # axs.plot(t, y_true)
     # axs.plot(x, y, 'ro')
     # plt.show()
-    # ph = 1
+    ph = 1
 
     return x, y
 
@@ -65,5 +65,11 @@ if __name__ == '__main__':
         outputs.append([diff_s[0], diff_s[24], diff_s[49], diff_s[74], diff_s[99]])
     outputs = np.asarray(outputs)
     plt.semilogx(gamma, outputs[:, 0])
+    plt.semilogx(gamma, outputs[:, 1])
+    plt.semilogx(gamma, outputs[:, 2])
+    plt.semilogx(gamma, outputs[:, 3])
     plt.semilogx(gamma, outputs[:, 4])
+    plt.legend(['Minimum', '25%', 'Median', '75%', 'Maximum'])
+    plt.xlabel('Gamma')
+    plt.ylabel('Mean Squared Error')
     plt.show()
